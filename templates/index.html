@@ -1,0 +1,28 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="strict-origin-when-cross-origin"><title>Smart Agriculture DSS</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>body{margin:0;font-family:system-ui,sans-serif;display:flex;height:100vh}
+#map{flex:1}#panel{width:380px;overflow:auto;padding:16px;background:#f4f8f1}
+h2{margin-top:0;color:#2e6b34}.card{background:#fff;border-radius:8px;padding:10px;margin:8px 0;box-shadow:0 1px 3px #0002}
+@media(max-width:700px){body{flex-direction:column}#panel{width:auto;height:45%}}</style></head><body>
+<div id="map"></div><div id="panel"><h2>Smart Agriculture DSS</h2><p>Click anywhere on the map to analyse that location.</p></div>
+<script>
+const map=L.map('map').setView([15.3,75.7],6);
+const CARTO_KEY=''; // optional: free key from carto.com/basemaps/apikey
+CARTO_KEY
+ ? L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key='+CARTO_KEY,{subdomains:'abcd',maxZoom:19,attribution:'© OpenStreetMap contributors © CARTO'}).addTo(map)
+ : L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
+let marker;const P=document.getElementById('panel');
+map.on('click',async e=>{
+ const {lat,lng}=e.latlng; marker&&marker.remove(); marker=L.marker([lat,lng]).addTo(map);
+ P.innerHTML='<h2>Analysing…</h2>';
+ const d=await (await fetch(`/api/analyze?lat=${lat}&lon=${lng}`)).json(), n=d.nutrients;
+ P.innerHTML=`<h2>Results</h2>
+ <div class="card"><b>Location</b><br>${lat.toFixed(4)}, ${lng.toFixed(4)}<br>Avg temp ${d.environment.temp} °C · Rain ${d.environment.rain} mm/yr · Soil pH ${d.environment.ph}<br><small>Data: ${d.environment.source}</small></div>
+ <div class="card"><b>Predicted yield (t/ha)</b><br>${d.yields.map(y=>`${y.crop}: ${y.yield_t_ha} (${y.suitability}% suitable)`).join('<br>')}</div>
+ <div class="card"><b>Intercrop with ${d.best}</b><br>${d.intercrops.join(', ')}</div>
+ <div class="card"><b>Crop rotation</b><br>${d.rotation.join(' → ')}</div>
+ <div class="card"><b>Nutrient recovery (${d.applied_t_ha} t/ha organic input)</b><br>${Object.entries(n).map(([k,v])=>`${k}: N ${v.N}, P₂O₅ ${v.P2O5}, K₂O ${v.K2O} kg/ha — saves ~${v.urea_saved_kg} kg urea`).join('<br>')}</div>`;
+});
+</script></body></html>
